@@ -1,0 +1,15 @@
+LICENSE
+README.md
+setup.cfg
+setup.py
+tests/__init__.py
+tests/test_unquote.py
+unquotemail/__init__.py
+unquotemail/__version__.py
+unquotemail/unquote.py
+unquotemail/utils.py
+unquotemail.egg-info/PKG-INFO
+unquotemail.egg-info/SOURCES.txt
+unquotemail.egg-info/dependency_links.txt
+unquotemail.egg-info/requires.txt
+unquotemail.egg-info/top_level.txt

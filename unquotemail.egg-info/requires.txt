@@ -1,0 +1,6 @@
+beautifulsoup4>=4.13.3
+Markdown>=3.7
+html2text>=2024.2.26
+
+[dev]
+pytest>=8.3.4

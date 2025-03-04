@@ -42,7 +42,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         'beautifulsoup4>=4.13.3',
-        'Markdown>=3.7'
+        'Markdown>=3.7',
         'html2text>=2024.2.26',
     ],
     extras_require={
