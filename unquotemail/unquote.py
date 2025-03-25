@@ -195,9 +195,9 @@ class Unquote:
             return True
 
         # Gmail
-        gmail = soup.find(class_='gmail_quote')
-        if gmail:
-            gmail.decompose()
+        gmail = soup.find(class_='gmail_attr')
+        if gmail and 'gmail_quote_container' in gmail.parent.attrs.get('class', []):
+            gmail.parent.decompose()
             return True
 
         # Yahoo
