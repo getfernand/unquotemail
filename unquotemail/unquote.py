@@ -147,8 +147,10 @@ patterns = [
 
 class Unquote:
     def __init__(self, html, text, sender=None, parse=True):
-        self.html = html.replace('\xa0', ' ') if html else None
-        self.text = text.replace('\xa0', ' ') if text else None
+        self.original_html = html.replace('\xa0', ' ') if html else None
+        self.html = self.original_html
+        self.original_text = text.replace('\xa0', ' ') if text else None
+        self.text = self.original_text
 
         if not self.html and not self.text:
             raise ValueError('You must provide at least one of html or text')
@@ -161,9 +163,15 @@ class Unquote:
             self.parse()
 
     def get_html(self):
+        if not self.html and self.original_html:
+            return self.original_html
+
         return self.html
 
     def get_text(self):
+        if not self.text and self.original_text:
+            return self.original_text
+
         return self.text
 
     def _parse_structure(self, soup):
@@ -440,6 +448,9 @@ class Unquote:
                     parent = matching_tag.parent
                     matching_tag.decompose()
                     while parent:
+                        if isinstance(parent, BeautifulSoup):
+                            break
+
                         if not parent.get_text(strip=True) and not parent.find_all('img'):
                             parent.decompose()
                             parent = parent.parent

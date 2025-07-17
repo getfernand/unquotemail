@@ -64,8 +64,6 @@ setup(
         'Topic :: Scientific/Engineering :: Interface Engine/Protocol Translator',
         'Topic :: Text Processing',
 
-        'License :: OSI Approved :: MIT License',
-
         "Operating System :: OS Independent",
         "Programming Language :: Python",
 
