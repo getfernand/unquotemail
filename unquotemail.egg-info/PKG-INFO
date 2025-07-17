@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: unquotemail
-Version: 1.0.0
+Version: 1.0.1
 Summary: Parse a given Html/Text email and return only the new text, without the quoted part.
 Home-page: https://github.com/getfernand/unquotemail
 Author: Cyril Nicodeme
@@ -17,7 +17,6 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 Classifier: Topic :: Scientific/Engineering :: Interface Engine/Protocol Translator
 Classifier: Topic :: Text Processing
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
@@ -47,6 +46,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: platform
 Dynamic: project-url
 Dynamic: provides-extra
@@ -75,6 +75,29 @@ If we succeed at point 2, we parse the HTML (again) to locate the matched regex 
 If we fail to locate the pattern in the HTML structure, we re-create a new HTML by converting the text to HTML 
 
 We allow ourselves to rewrite the text to HTML in that last resort because we consider that an email containing previous data is generally an human-written reply and not a marketing email with advanced structure, so the content should be basic to parse (link, bold/italic/underline, images and that's almost all; All of what a Markdown converter can do).
+
+
+## Origin
+
+Before building our own, we were hoping to find an awesome library that was doing all of dirty work for us, in Python, but unfortunately we couldn't find what were looking for.
+Our criteria were:
+
+1. Must be in Python
+2. Must handle both text/html and text/plain (with a priority to HTML and a fallback to Text)
+3. Be able to build back the HTML data from the parsed Plain, and vice-versa.
+
+We found two main libraries from known providers: 
+
+ * [Email Reply Parser - Crisp](https://github.com/crisp-oss/email-reply-parser/)
+ * [Talon - Mailgun](https://github.com/mailgun/talon)
+
+For Crisp, what is interesting is their extended set of regex patterns for identifying text emails, but they lack the HTML support we were needing.
+Moreover, their code is in Javascript.
+
+For Mailgun, they checked all the cases (in Python, handling both HTML and TXT), but they provide machine learning which we aren't looking for, and offer more advanced features (identifying signatures, ...) we are not interested either.
+
+So we decided to build our own, by merging the Regex patterns from both libraries into one, and extending the tests from our own system in the hope it will help someone else :)
+
 
 ## Usage
 
