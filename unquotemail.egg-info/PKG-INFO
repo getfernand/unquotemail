@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unquotemail
-Version: 1.0.1
+Version: 1.0.3
 Summary: Parse a given Html/Text email and return only the new text, without the quoted part.
 Home-page: https://github.com/getfernand/unquotemail
 Author: Cyril Nicodeme

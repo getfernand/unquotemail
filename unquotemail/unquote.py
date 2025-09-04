@@ -2,7 +2,7 @@
 
 from bs4 import BeautifulSoup
 from bs4.element import NavigableString, Tag
-import html2text, tempfile, re, markdown
+import html2text, re, markdown
 
 """
 From:
@@ -312,12 +312,17 @@ class Unquote:
         # Apple and generic
         generic = soup.find('blockquote', attrs={'type': 'cite'})
         if generic:
-            for elt in generic.find_all_next():
-                if not isinstance(elt, NavigableString):
-                    if elt and elt.string:
-                        elt.decompose()
+            current = generic
+            while current:
+                for elt in current.find_all_next():
+                    if not isinstance(elt, NavigableString):
+                        if elt and elt.string:
+                            elt.decompose()
 
-            generic.decompose()
+                current.decompose()
+                current = current.parent
+
+            # generic.decompose()
             return True
 
         # Custom A
@@ -378,7 +383,9 @@ class Unquote:
         for pattern in patterns:
             match = pattern.search(self.text)
             if match:
+                print(match)
                 parsed_text = match.group(0)
+                print(parsed_text)
                 break
 
         if not parsed_text:
@@ -443,7 +450,7 @@ class Unquote:
                     previous_tag = matching_tag
                     matching_tag = matching_tag.parent
 
-                if found:
+                if found and not isinstance(matching_tag, BeautifulSoup):
                     # If parent has no text and no image, we remove them too:
                     parent = matching_tag.parent
                     matching_tag.decompose()
@@ -481,3 +488,35 @@ class Unquote:
 
     def no_patterns_found(self, text):
         return
+
+
+class VerboseUnquote(Unquote):
+    def quote_found(self, data):
+        print('Quote found in HTML structure')
+        print(data.prettify()[0:100])
+
+    def sign_found(self, data):
+        print('Signature found in HTML structure')
+        print(data.prettify()[0:100])
+
+    def no_patterns_found(self, text):
+        print('No patterns found in text')
+        print(text[0:100])
+
+
+if __name__ == '__main__':
+    # Taking the first arg as the file path
+    from mailparse import EmailDecode
+    import sys, json
+
+    if len(sys.argv) < 2:
+        print("Usage: python unquote.py <file_path>")
+        sys.exit(1)
+
+    file_path = sys.argv[1]
+    with open(file_path, 'r', encoding='utf-8') as file:
+        decode = EmailDecode.load(file.read())
+
+    print('')
+    unquote = VerboseUnquote(html=decode.get('html'), text=decode.get('text'), parse=True)
+    print(unquote.get_html())
