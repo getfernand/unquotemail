@@ -15,7 +15,7 @@ patterns = [
     # On DATE, NAME <EMAIL> wrote:
     # Original pattern: /^-*\s*(On\s.+\s.+\n?wrote:{0,1})\s{0,1}-*$/m
     re.compile(
-        r"^-*\s*(({})\s.+\s.+\n?({})\s*:)\s?-*".format(
+        r"^-*\s*(({})\s.+\s.+?({})\s*:)\s?-*".format(
             '|'.join(('on', 'le', 'el', 'il', 'em')),
             '|'.join(('wrote', 'sent', 'écrit', 'escribió', 'scritto', 'escreveu'))
         ),
@@ -25,12 +25,12 @@ patterns = [
     # German
     # Am DATE schrieb NAME <EMAIL>:
     # Original pattern: /^\s*(Am\s.+\s)\n?\n?schrieb.+\s?(\[|<).+(\]|>):$/m
-    re.compile(r"^\s*(am\s.+\s)\n?\n?schrieb.+\s?(\[|<).+(\]|>):", re.MULTILINE | re.IGNORECASE),
+    re.compile(r"^\s*(am\s.+\s)schrieb.+\s?(\[|<).+(\]|>):", re.MULTILINE | re.IGNORECASE),
 
     # Dutch
     # Il DATE, schreef NAME <EMAIL>:
     # Original pattern: /^\s*(Op\s[\s\S]+?\n?schreef[\s\S]+:)$/m
-    re.compile(r"^\s*(op\s[\s\S]+?\n?(schreef|verzond|geschreven)[\s\S]+:)", re.MULTILINE | re.IGNORECASE),
+    re.compile(r"^\s*(op\s[\s\S]+?(schreef|verzond|geschreven)[\s\S]+:)", re.MULTILINE | re.IGNORECASE),
 
     # Polish
     # W dniu DATE, NAME <EMAIL> pisze|napisał:
@@ -44,7 +44,10 @@ patterns = [
 
     # Vietnamese
     # Vào DATE đã viết NAME <EMAIL>:
-    re.compile(r"^\s*(vào\s.+\s\n?đã viết\s.+:)", re.MULTILINE | re.IGNORECASE),
+    re.compile(r"^\s*(vào\s.+\sđã viết\s.+:)", re.MULTILINE | re.IGNORECASE),
+
+    # Outlook 2019 (no)
+    re.compile(r'^\s?.+\s*[\[|<].+[\]|>]\s?skrev følgende den\s?.+\s?:', re.MULTILINE),
 
     # Outlook 2019 (cz)
     re.compile(r'^\s?dne\s?.+\,\s?.+\s*[\[|<].+[\]|>]\s?napsal\(a\)\s?:', re.MULTILINE | re.IGNORECASE),
@@ -54,6 +57,9 @@ patterns = [
 
     # Outlook 2019 (sk)
     re.compile(r'^\s?.+\s?používateľ\s?.+\s*\([\[|<].+[\]|>]\)\s?napísal\s?:', re.MULTILINE | re.IGNORECASE),
+
+    # Outlook 2019 (sv)
+    re.compile(r'\s?Den\s?.+\s?skrev\s?\".+\"\s*[\[|<].+[\]|>]\s?följande\s?:', re.MULTILINE),
 
     # Outlook 2019 (tr)
     re.compile(r'^\s?\".+\"\s*[\[|<].+[\]|>]\,\s?.+\s?tarihinde şunu yazdı\s?:', re.MULTILINE | re.IGNORECASE),
@@ -65,7 +71,7 @@ patterns = [
 
     # pe DATE NAME <EMAIL> kirjoitti:
     # Original pattern: /^\s*(pe\s.+\s.+\n?kirjoitti:)$/m
-    re.compile(r"^\s*(pe\s.+\s.+\n?kirjoitti:)", re.MULTILINE | re.IGNORECASE),
+    re.compile(r"^\s*(pe\s.+\s.+kirjoitti:)", re.MULTILINE | re.IGNORECASE),
 
     # > 在 DATE, TIME, NAME 写道：
     # Original pattern: /^(在[\s\S]+写道：)$/m
@@ -146,35 +152,37 @@ patterns = [
 
 
 class Unquote:
-    def __init__(self, html, text, sender=None, parse=True):
-        self.original_html = html.replace('\xa0', ' ') if html else None
-        self.html = self.original_html
-        self.original_text = text.replace('\xa0', ' ') if text else None
-        self.text = self.original_text
-
-        if not self.html and not self.text:
+    def __init__(self, html, text, parse=True):
+        if not html and not text:
             raise ValueError('You must provide at least one of html or text')
 
-        self.sender = None
-        if sender:
-            self.sender = sender.strip('<> \t\r\n')
+        self.original_html = html.replace('\xa0', ' ') if html else None
+        self._html = None
+        self.original_text = text.replace('\xa0', ' ') if text else None
+        self._text = None
 
         if parse:
             self.parse()
 
     def get_html(self):
-        if not self.html and self.original_html:
-            return self.original_html
+        if self._html is None:
+            if self.original_html:
+                self._html = self.original_html
+            else:
+                self._html = self.text_to_html(self.original_text)
 
-        return self.html
+        return self._html
 
     def get_text(self):
-        if not self.text and self.original_text:
-            return self.original_text
+        if self._text is None:
+            if self.original_text:
+                self._text = self.original_text
+            else:
+                self._text = html2text.html2text(self.original_html).strip()
 
-        return self.text
+        return self._text
 
-    def _parse_structure(self, soup):
+    def _parse_html(self, soup):
         # Moz (must be before Apple)
         moz = soup.find('div', attrs={'class': 'moz-cite-prefix'})
         if moz:
@@ -204,7 +212,13 @@ class Unquote:
 
         # Gmail
         gmail = soup.find(class_='gmail_attr')
-        if gmail and 'gmail_quote_container' in gmail.parent.attrs.get('class', []):
+        if gmail and gmail.parent and ('gmail_quote_container' in gmail.parent.attrs.get('class', []) or 'gmail_quote' in gmail.parent.attrs.get('class', [])):
+            gmail.parent.decompose()
+            return True
+
+        # gmail, fallback
+        gmail = soup.find('blockquote', class_='gmail_quote')
+        if gmail and gmail.parent and gmail.parent.name == 'div' and 'gmail_quote' in gmail.parent.attrs.get('class', []):
             gmail.parent.decompose()
             return True
 
@@ -218,6 +232,16 @@ class Unquote:
         ymail = soup.find('div', class_='ymail_android_signature')
         if ymail:
             ymail.decompose()
+            # Remove everything that comes after:
+            for ns in ymail.next_siblings:
+                if not isinstance(ns, NavigableString):
+                    ns.decompose()
+            return True
+
+        # GetFernand.com
+        fernand = soup.find('div', class_='fernand_quote')
+        if fernand:
+            fernand.decompose()
             return True
 
         # Intercom
@@ -303,11 +327,32 @@ class Unquote:
             zoho.decompose()
             return True
 
+        # Notion
+        notion = soup.find('blockquote', class_='notion-mail-quote')
+        if notion:
+            notion.decompose()
+            return True
+
+        # Some odd Yahoo ydp
+        ydp = soup.select('div[class$="yahoo_quoted"]')
+        if ydp and ydp.get('id') and ydp['id'].find('yahoo_quoted') > -1:
+            ydp.decompose()
+            return True
+
         # QT
         qt = soup.find('blockquote', attrs={'type': 'cite', 'id': 'qt'})
         if qt:
             qt.decompose()
             return True
+
+        # Alimail
+        alimail = soup.find('div', class_='alimail-quote')
+        if alimail and alimail.parent and alimail.parent.name == 'blockquote':
+            alimail.parent.decompose()
+            return True
+
+        """
+        We remove the following three tests as they are too generic and can create issues
 
         # Apple and generic
         generic = soup.find('blockquote', attrs={'type': 'cite'})
@@ -336,6 +381,9 @@ class Unquote:
         if custom_b and custom_b.attrs and custom_b.attrs.get('style') and custom_b.attrs.get('style').lower().find('font-style'):
             custom_b.parent.parent.parent.decompose()
             return True
+        """
+
+        return False
 
     def _clear_text(self, text):
         for pattern in ('>', '<', ' ', '\n', '\r', '\t', '\xa0'):
@@ -347,31 +395,20 @@ class Unquote:
         """
         1. Class based signatures
         The first thing we do is try to locate specific classes for each specific mail provider.
-        For that, we rely on the sender message_id to identify the provider and remove the appropriate class whenever possible
         """
-        if self.html:
-            soup = BeautifulSoup(self.html, 'html.parser')
-            if self._parse_structure(soup):
-                self.html = str(soup).strip()
-                self.text = html2text.html2text(self.html).strip()
+        self._text = self.original_text
+        self._html = self.original_html
+
+        if self._html:
+            soup = BeautifulSoup(self._html, 'html.parser')
+            if self._parse_html(soup):
+                self._html = str(soup).strip()
+                self._text = html2text.html2text(self._html).strip()
                 return True
 
-            """
-            1a. Try to locate any class="*quote*" and debug it
-            """
-            quote = soup.select('[class*="quote"]')
-            if quote:
-                self.quote_found(soup)
+        if not self._text:
+            self._text = html2text.html2text(self._html).strip()
 
-            """
-            1b. Try to locate any class="*sign*" and debug it
-            """
-            quote = soup.select('[class*="sign"]')
-            if quote:
-                self.sign_found(soup)
-
-        if not self.text:
-            self.text = html2text.html2text(self.html).strip()
         """
         2. Content based data using regex
         In this case, we fallback to the raw text, and try to identify a pattern from a list of compiled Regex
@@ -379,31 +416,42 @@ class Unquote:
         - https://github.com/mailgun/talon/blob/master/talon/quotations.py
         - https://github.com/crisp-oss/email-reply-parser/blob/master/lib/regex.js
         """
-        parsed_text = None
+        match = None
         for pattern in patterns:
-            match = pattern.search(self.text)
+            match = pattern.search(self._text)
             if match:
-                print(match)
-                parsed_text = match.group(0)
-                print(parsed_text)
                 break
 
-        if not parsed_text:
-            self.no_patterns_found(self.text)
+        if not match:
+            self.no_patterns_found(self._text)
+            if self._html:
+                """
+                1a. Try to locate any class="*quote*" and debug it
+                """
+                quote = soup.select('[class*="quote"]')
+                if quote:
+                    self.quote_found(soup)
+
+                """
+                1b. Try to locate any class="*sign*" and debug it
+                """
+                quote = soup.select('[class*="sign"]')
+                if quote:
+                    self.sign_found(soup)
+
             return False
+        self._text = self._text[0:match.start()].strip()
 
-        self.text = self.text[0:self.text.find(parsed_text)].strip()
-
-        if self.html:
+        if self._html:
             # Ok, now we have the text, we need to find a where it is present in the html to remove the next things
             # If we can't find it, we will rebuild the html from the text using markdown
 
-            # loop over the soup object and build the string of content as we go until we find the parsed_text
+            # loop over the soup object and build the string of content as we go until we find the match.group(0)
             # then we will remove everything after that
             content = ''
 
             matching_tag = None
-            lookup_text = self._clear_text(parsed_text)
+            lookup_text = self._clear_text(match.group(0))
             for tag in soup.descendants:
                 if not isinstance(tag, NavigableString):
                     continue
@@ -452,33 +500,35 @@ class Unquote:
 
                 if found and not isinstance(matching_tag, BeautifulSoup):
                     # If parent has no text and no image, we remove them too:
-                    parent = matching_tag.parent
+                    current = matching_tag.parent
                     matching_tag.decompose()
-                    while parent:
-                        if isinstance(parent, BeautifulSoup):
+                    while current:
+                        if isinstance(current, BeautifulSoup):
                             break
 
-                        if not parent.get_text(strip=True) and not parent.find_all('img'):
-                            parent.decompose()
-                            parent = parent.parent
+                        if not current.get_text(strip=True) and not current.find_all('img'):
+                            parent = current.parent
+                            current.decompose()
+                            current = parent
                         else:
                             break
 
-                self.html = str(soup).strip()
+                self._html = str(soup).strip()
             else:
                 # We rebuild the html from the text
-                self.html = self.text_to_html(self.text)
-                if self.html:
-                    self.html = self.html.strip()
+                self._html = self.text_to_html(self._text)
 
         return True
 
     def text_to_html(self, data):
+        if not data:
+            return None
+
         return markdown.markdown(
             data,
             extensions=['sane_lists', 'nl2br', 'fenced_code', 'codehilite', 'legacy_em'],
             output_format='html5'
-        )
+        ).strip()
 
     def quote_found(self, data):
         return
@@ -507,7 +557,7 @@ class VerboseUnquote(Unquote):
 if __name__ == '__main__':
     # Taking the first arg as the file path
     from mailparse import EmailDecode
-    import sys, json
+    import sys
 
     if len(sys.argv) < 2:
         print("Usage: python unquote.py <file_path>")
@@ -515,7 +565,12 @@ if __name__ == '__main__':
 
     file_path = sys.argv[1]
     with open(file_path, 'r', encoding='utf-8') as file:
-        decode = EmailDecode.load(file.read())
+        if file_path.endswith('.html'):
+            decode = {'html': file.read(), 'text': None}
+        elif file_path.endswith('.txt'):
+            decode = {'html': None, 'text': file.read()}
+        else:
+            decode = EmailDecode.load(file.read())
 
     print('')
     unquote = VerboseUnquote(html=decode.get('html'), text=decode.get('text'), parse=True)

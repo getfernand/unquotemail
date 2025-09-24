@@ -10,9 +10,7 @@ On the other hand, it could happen TWICE!
 
 Stranger
 
-On Wed, Dec 9, Mister Example
-<mrmister@example.com>
-wrote:
+On Wed, Dec 9, Mister Example <mrmister@example.com> wrote:
 > Hey, Stranger,
 > It's mrmister again, and I hope you reply to me. I also hope this fragment has my reply header in it!
 >

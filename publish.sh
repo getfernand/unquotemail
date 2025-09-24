@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-# It needs python3 -m pip install --user --upgrade setuptools wheel twine
+# It needs python -m pip install --user --upgrade setuptools wheel twine
 VERSION=$(python -c "from unquotemail import __version__; print(__version__)")
 
 rm -rf unquotemail/__pycache__
@@ -12,6 +12,6 @@ git push origin master
 git tag $VERSION
 git push origin $VERSION
 
-python3 -m build
-python3 -m twine upload dist/*
+python -m build
+python -m twine upload dist/*
 echo "Done"
