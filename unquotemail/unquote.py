@@ -361,7 +361,7 @@ class Unquote:
             return True
 
         # Some odd Yahoo ydp
-        ydp = soup.select('div[class$="yahoo_quoted"]')
+        ydp = soup.select_one('div[class$="yahoo_quoted"]')
         if ydp and ydp.get('id') and ydp['id'].find('yahoo_quoted') > -1:
             ydp.decompose()
             return True
