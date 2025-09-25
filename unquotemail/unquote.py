@@ -406,6 +406,20 @@ class Unquote:
                 self._text = html2text.html2text(self._html).strip()
                 return True
 
+            """
+            1a. Try to locate any class="*quote*" and debug it
+            """
+            quote = soup.select('[class*="quote"]')
+            if quote:
+                self.quote_found(soup)
+
+            """
+            1b. Try to locate any class="*sign*" and debug it
+            """
+            quote = soup.select('[class*="sign"]')
+            if quote:
+                self.sign_found(soup)
+
         if not self._text:
             self._text = html2text.html2text(self._html).strip()
 
@@ -424,22 +438,8 @@ class Unquote:
 
         if not match:
             self.no_patterns_found(self._text)
-            if self._html:
-                """
-                1a. Try to locate any class="*quote*" and debug it
-                """
-                quote = soup.select('[class*="quote"]')
-                if quote:
-                    self.quote_found(soup)
-
-                """
-                1b. Try to locate any class="*sign*" and debug it
-                """
-                quote = soup.select('[class*="sign"]')
-                if quote:
-                    self.sign_found(soup)
-
             return False
+
         self._text = self._text[0:match.start()].strip()
 
         if self._html:
@@ -531,12 +531,23 @@ class Unquote:
         ).strip()
 
     def quote_found(self, data):
+        """
+        This function is called when a class containing the word "quote" is found in the HTML structure
+        It can be overloaded to provide custom behavior to handle cases that are not supported here
+        """
         return
 
     def sign_found(self, data):
+        """
+        Same as the quote_found, but for "sign" classes.
+        """
         return
 
     def no_patterns_found(self, text):
+        """
+        This function is called when no regex pattern matched the text, and this after the HTML based parsing failed.
+        In a nutshell, this means we were not able to find any clue that this email contained a reply, which might be a possibility.
+        """
         return
 
 
