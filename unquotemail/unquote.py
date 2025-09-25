@@ -15,10 +15,31 @@ patterns = [
     # On DATE, NAME <EMAIL> wrote:
     # Original pattern: /^-*\s*(On\s.+\s.+\n?wrote:{0,1})\s{0,1}-*$/m
     re.compile(
-        r"^-*\s*(({})\s.+\s.+?({})\s*:)\s?-*".format(
-            '|'.join(('on', 'le', 'el', 'il', 'em')),
-            '|'.join(('wrote', 'sent', 'écrit', 'escribió', 'scritto', 'escreveu'))
-        ),
+        r"^>*-*\s*((on|in a message dated)\s.+\s.+?(wrote|sent)\s*:)\s?-*",
+        re.MULTILINE | re.IGNORECASE
+    ),
+
+    # French
+    re.compile(
+        r"^>*-*\s*((le)\s.+\s.+?(écrit)\s*:)\s?",
+        re.MULTILINE | re.IGNORECASE
+    ),
+
+    # Spanish
+    re.compile(
+        r"^>*-*\s*((el)\s.+\s.+?(escribió)\s*:)\s?",
+        re.MULTILINE | re.IGNORECASE
+    ),
+
+    # Italian
+    re.compile(
+        r"^>*-*\s*((il)\s.+\s.+?(scritto)\s*:)\s?",
+        re.MULTILINE | re.IGNORECASE
+    ),
+
+    # Portuguese
+    re.compile(
+        r"^>*-*\s*((em)\s.+\s.+?(escreveu)\s*:)\s?",
         re.MULTILINE | re.IGNORECASE
     ),
 
@@ -314,6 +335,12 @@ class Unquote:
             zmail.decompose()
             return True
 
+        # Zendesk
+        zendesk = soup.select_one('div.quotedReply>blockquote')
+        if zendesk:
+            zendesk.parent.decompose()
+            return True
+
         # Zoho
         zoho = soup.find('div', title='beforequote:::')
         if zoho:
@@ -351,37 +378,23 @@ class Unquote:
             alimail.parent.decompose()
             return True
 
-        """
-        We remove the following three tests as they are too generic and can create issues
+        # Some Apple version
+        apple = soup.select_one('html[class*="apple-mail"] blockquote[type="cite"]>div[dir]')
+        if apple:
+            previous_sibling = apple.parent.previous_sibling
+            while previous_sibling and isinstance(previous_sibling, NavigableString):
+                previous_sibling = previous_sibling.previous_sibling
 
-        # Apple and generic
-        generic = soup.find('blockquote', attrs={'type': 'cite'})
-        if generic:
-            current = generic
-            while current:
-                for elt in current.find_all_next():
-                    if not isinstance(elt, NavigableString):
-                        if elt and elt.string:
-                            elt.decompose()
+            if previous_sibling and previous_sibling.get('dir'):
+                for child in previous_sibling.children:
+                    if isinstance(child, NavigableString):
+                        continue
+                    if child.name == 'blockquote':
+                        child.parent.decompose()
+                        break
 
-                current.decompose()
-                current = current.parent
-
-            # generic.decompose()
+            apple.parent.decompose()
             return True
-
-        # Custom A
-        custom_a = soup.find('div', class_="quote")
-        if custom_a and custom_a.get('style') and custom_a['style'].replace(' ', '').find('border:none;') > -1:
-            custom_a.decompose()
-            return True
-
-        # Custom B
-        custom_b = soup.select_one('div.quote>blockquote')
-        if custom_b and custom_b.attrs and custom_b.attrs.get('style') and custom_b.attrs.get('style').lower().find('font-style'):
-            custom_b.parent.parent.parent.decompose()
-            return True
-        """
 
         return False
 
