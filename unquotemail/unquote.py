@@ -374,9 +374,12 @@ class Unquote:
         # ZMail
         zmail = soup.find('div', class_="zmail_extra")
         if zmail:
-            previous = next(zmail.previous_siblings)
-            if previous.attrs.get('class') and 'zmail_extra_hr' in previous.attrs['class']:
-                previous.decompose()
+            try:
+                previous = next(zmail.previous_siblings)
+                if previous.attrs.get('class') and 'zmail_extra_hr' in previous.attrs['class']:
+                    previous.decompose()
+            except StopIteration:
+                pass
 
             zmail.decompose()
             return True
